@@ -1,14 +1,15 @@
 import { AlertCircle, RefreshCw, Trash2 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 
-const wordCache = new Map<string, boolean>(); // ✅ Caching word checks
+const wordCache = new Map<string, boolean>();
 
 function App() {
   const [words, setWords] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const [exampleSentence, setExampleSentence] = useState<string | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState(false); // ✅ Confirmation state
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -20,23 +21,22 @@ function App() {
     if (wordCache.has(word)) {
       return wordCache.get(word)!;
     }
-  
+
     try {
       const isEnglish = /^[A-Za-z]+$/.test(word);
       let isNoun = false;
       let example = null;
-  
+
       if (isEnglish) {
         const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
         if (response.ok) {
           const data = await response.json();
-  
           const nounEntry = data.find((entry: any) =>
             entry.meanings.some((meaning: any) =>
               meaning.partOfSpeech === "noun"
             )
           );
-  
+
           if (nounEntry) {
             isNoun = true;
             const nounDefinition = nounEntry.meanings.find((meaning: any) => meaning.partOfSpeech === "noun");
@@ -53,7 +53,7 @@ function App() {
           example = data.example || null;
         }
       }
-  
+
       wordCache.set(word, isNoun);
       setExampleSentence(example);
       return isNoun;
@@ -111,8 +111,14 @@ function App() {
     ]);
 
     if (!isNounCheck) {
-      setError("ไม่ใช่คำนาม");
-      return false;
+      if (pendingConfirmation) {
+        setPendingConfirmation(false); // ✅ Clear confirmation state
+        return true; // ✅ Allow word if confirmed
+      } else {
+        setError("❗ คำนี้ไม่ใช่คำนาม กด Enter อีกครั้งเพื่อยืนยัน");
+        setPendingConfirmation(true); // ✅ Set confirmation state
+        return false;
+      }
     }
 
     if (isTranslationCheck) {
@@ -130,6 +136,7 @@ function App() {
       setWords([...words, trimmedValue]);
       setInputValue("");
       setError(null);
+      setPendingConfirmation(false); // ✅ Reset confirmation after adding word
     }
   };
 
@@ -137,6 +144,7 @@ function App() {
     setWords([]);
     setInputValue("");
     setError(null);
+    setPendingConfirmation(false);
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -162,7 +170,7 @@ function App() {
           ))}
         </h1>
         <p className="text-gray-600 text-center mb-8">ยกกำลัง</p>
-        
+
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-gray-700">เพิ่มคำใหม่</h2>
@@ -174,7 +182,7 @@ function App() {
               รีเซ็ต
             </button>
           </div>
-          
+
           <form onSubmit={handleSubmit} className="mb-4">
             <div className="relative">
               <input
@@ -192,7 +200,7 @@ function App() {
                 ส่ง
               </button>
             </div>
-            
+
             {error && (
               <div className="flex items-center mt-2 text-red-500">
                 <AlertCircle size={16} className="mr-1" />
@@ -203,7 +211,7 @@ function App() {
         </div>
 
         {exampleSentence && (
-          <div className="mt-2 mb-2 text-gray-700 italic text-sm">
+          <div className="mt-2 mb-2 text-blue-600 italic text-sm">
             ตัวอย่าง: "{exampleSentence}"
           </div>
         )}
