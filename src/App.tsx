@@ -8,6 +8,7 @@ function App() {
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [exampleSentence, setExampleSentence] = useState<string | null>(null);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -19,30 +20,42 @@ function App() {
     if (wordCache.has(word)) {
       return wordCache.get(word)!;
     }
-
+  
     try {
       const isEnglish = /^[A-Za-z]+$/.test(word);
       let isNoun = false;
-
+      let example = null;
+  
       if (isEnglish) {
         const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
         if (response.ok) {
           const data = await response.json();
-          isNoun = data.some((entry: any) =>
+  
+          const nounEntry = data.find((entry: any) =>
             entry.meanings.some((meaning: any) =>
               meaning.partOfSpeech === "noun"
             )
           );
+  
+          if (nounEntry) {
+            isNoun = true;
+            const nounDefinition = nounEntry.meanings.find((meaning: any) => meaning.partOfSpeech === "noun");
+            if (nounDefinition && nounDefinition.definitions.length > 0) {
+              example = nounDefinition.definitions[0].example || null;
+            }
+          }
         }
       } else {
         const response = await fetch(`https://isnoun-production.up.railway.app/is_noun/${word}`);
         if (response.ok) {
           const data = await response.json();
           isNoun = data.is_noun;
+          example = data.example || null;
         }
       }
-
+  
       wordCache.set(word, isNoun);
+      setExampleSentence(example);
       return isNoun;
     } catch (error) {
       return false;
@@ -188,6 +201,12 @@ function App() {
             )}
           </form>
         </div>
+
+        {exampleSentence && (
+          <div className="mt-2 mb-2 text-gray-700 italic text-sm">
+            ตัวอย่าง: "{exampleSentence}"
+          </div>
+        )}
 
         {words.length > 0 && (
           <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
